@@ -1,0 +1,35 @@
+from app.database import Base
+from app.models.entities import (
+    SparePart,
+    PartClassification,
+    Supplier,
+    InventoryMetric,
+    DemandHistory,
+    StockTransaction,
+    Asset,
+    AssetPartLink,
+    MaintenanceWorkPackage,
+    WorkPackagePart,
+    BlockWindow,
+    SimulationRun,
+    DataImport,
+    AuditLog,
+)
+
+__all__ = [
+    "Base",
+    "SparePart",
+    "PartClassification",
+    "Supplier",
+    "InventoryMetric",
+    "DemandHistory",
+    "StockTransaction",
+    "Asset",
+    "AssetPartLink",
+    "MaintenanceWorkPackage",
+    "WorkPackagePart",
+    "BlockWindow",
+    "SimulationRun",
+    "DataImport",
+    "AuditLog",
+]
