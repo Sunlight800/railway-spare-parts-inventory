@@ -4,7 +4,7 @@ Classification Router: All 27 MUSIC-3D combinations, Pareto curves, and Selectiv
 
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc, asc
 from typing import Dict, Any, List
 import datetime
 
@@ -181,55 +181,122 @@ def get_music3d_cell_detail(code: str, db: Session = Depends(get_db)):
 
 @router.get("/abc")
 def get_abc_analysis(db: Session = Depends(get_db)):
-    """Pareto curve points and expenditure contributions."""
+    """Pareto curve points, summary statistics, distribution, and complete item table for ABC analysis."""
     parts = db.query(SparePart).join(PartClassification).order_by(desc(SparePart.annual_consumption_value_inr)).all()
+    total_parts = len(parts)
     total_spend = sum(p.annual_consumption_value_inr for p in parts)
     
     pareto_points = []
+    items_list = []
     cum_spend = 0.0
     for idx, p in enumerate(parts):
-        cum_spend += p.annual_consumption_value_inr
+        spend = p.annual_consumption_value_inr
+        cum_spend += spend
         cum_pct = (cum_spend / total_spend * 100.0) if total_spend > 0 else 0.0
-        item_pct = ((idx + 1) / len(parts) * 100.0)
+        item_pct = ((idx + 1) / total_parts * 100.0) if total_parts > 0 else 0.0
+        cls_code = p.classification.abc_class if p.classification and p.classification.abc_class else "C"
         
-        # Subsample points for smooth Pareto chart rendering
-        if idx < 30 or idx % 5 == 0 or idx == len(parts) - 1:
+        item_record = {
+            "rank": idx + 1,
+            "part_id": p.part_id,
+            "part_name": p.part_name,
+            "category": p.category,
+            "annual_usage_units": p.annual_usage_units,
+            "unit_price_inr": p.unit_price_inr,
+            "annual_consumption_value_inr": spend,
+            "current_stock_units": p.current_stock_units,
+            "lead_time_days": p.lead_time_days,
+            "supplier_id": p.supplier_id or "N/A",
+            "cumulative_expenditure_inr": round(cum_spend, 2),
+            "cumulative_expenditure_pct": round(cum_pct, 2),
+            "item_cumulative_pct": round(item_pct, 2),
+            "abc_class": cls_code,
+            "class_code": cls_code,
+            "class_label": f"Class {cls_code}",
+            "reason": p.classification.classification_reason if p.classification else "Evaluated by Stock Sentry selective control engine."
+        }
+        items_list.append(item_record)
+
+        # Build comprehensive points for Pareto chart
+        if idx < 50 or idx % 3 == 0 or idx == total_parts - 1:
             pareto_points.append({
                 "rank": idx + 1,
                 "part_id": p.part_id,
                 "part_name": p.part_name,
-                "annual_spend": p.annual_consumption_value_inr,
+                "annual_spend": spend,
+                "spend_in_thousands": round(spend / 1000.0, 1),
                 "item_cumulative_pct": round(item_pct, 1),
                 "spend_cumulative_pct": round(cum_pct, 1),
-                "abc_class": p.classification.abc_class if p.classification else "C"
+                "abc_class": cls_code
             })
 
-    a_items = [p for p in parts if p.classification and p.classification.abc_class == "A"]
-    b_items = [p for p in parts if p.classification and p.classification.abc_class == "B"]
-    c_items = [p for p in parts if p.classification and p.classification.abc_class == "C"]
+    a_items = [p for p in items_list if p["abc_class"] == "A"]
+    b_items = [p for p in items_list if p["abc_class"] == "B"]
+    c_items = [p for p in items_list if p["abc_class"] == "C"]
+
+    a_spend = sum(p["annual_consumption_value_inr"] for p in a_items)
+    b_spend = sum(p["annual_consumption_value_inr"] for p in b_items)
+    c_spend = sum(p["annual_consumption_value_inr"] for p in c_items)
+
+    distribution = [
+        {
+            "category": "A",
+            "name": "Class A (Tight Control)",
+            "description": "Top ~70% cumulative spend; tight daily control & low safety buffer",
+            "count": len(a_items),
+            "percentage_items": round((len(a_items) / total_parts * 100.0) if total_parts > 0 else 0, 1),
+            "total_spend_inr": round(a_spend, 2),
+            "spend_share_pct": round((a_spend / total_spend * 100.0) if total_spend > 0 else 0, 1),
+            "color": "#2563eb"
+        },
+        {
+            "category": "B",
+            "name": "Class B (Moderate Control)",
+            "description": "Next ~20% cumulative spend (up to 90%); periodic review & moderate buffer",
+            "count": len(b_items),
+            "percentage_items": round((len(b_items) / total_parts * 100.0) if total_parts > 0 else 0, 1),
+            "total_spend_inr": round(b_spend, 2),
+            "spend_share_pct": round((b_spend / total_spend * 100.0) if total_spend > 0 else 0, 1),
+            "color": "#0d9488"
+        },
+        {
+            "category": "C",
+            "name": "Class C (Loose Control)",
+            "description": "Remaining ~10% cumulative spend; bulk ordering & generous buffer",
+            "count": len(c_items),
+            "percentage_items": round((len(c_items) / total_parts * 100.0) if total_parts > 0 else 0, 1),
+            "total_spend_inr": round(c_spend, 2),
+            "spend_share_pct": round((c_spend / total_spend * 100.0) if total_spend > 0 else 0, 1),
+            "color": "#64748b"
+        }
+    ]
 
     return {
+        "total_parts": total_parts,
+        "total_annual_spend_inr": round(total_spend, 2),
         "summary": {
             "A": {
                 "count": len(a_items),
-                "item_share_pct": round(len(a_items) / len(parts) * 100.0, 1) if parts else 0,
-                "spend_inr": round(sum(p.annual_consumption_value_inr for p in a_items), 2),
-                "spend_share_pct": round(sum(p.annual_consumption_value_inr for p in a_items) / total_spend * 100.0, 1) if total_spend > 0 else 0
+                "item_share_pct": round(len(a_items) / total_parts * 100.0, 1) if total_parts else 0,
+                "spend_inr": round(a_spend, 2),
+                "spend_share_pct": round(a_spend / total_spend * 100.0, 1) if total_spend > 0 else 0
             },
             "B": {
                 "count": len(b_items),
-                "item_share_pct": round(len(b_items) / len(parts) * 100.0, 1) if parts else 0,
-                "spend_inr": round(sum(p.annual_consumption_value_inr for p in b_items), 2),
-                "spend_share_pct": round(sum(p.annual_consumption_value_inr for p in b_items) / total_spend * 100.0, 1) if total_spend > 0 else 0
+                "item_share_pct": round(len(b_items) / total_parts * 100.0, 1) if total_parts else 0,
+                "spend_inr": round(b_spend, 2),
+                "spend_share_pct": round(b_spend / total_spend * 100.0, 1) if total_spend > 0 else 0
             },
             "C": {
                 "count": len(c_items),
-                "item_share_pct": round(len(c_items) / len(parts) * 100.0, 1) if parts else 0,
-                "spend_inr": round(sum(p.annual_consumption_value_inr for p in c_items), 2),
-                "spend_share_pct": round(sum(p.annual_consumption_value_inr for p in c_items) / total_spend * 100.0, 1) if total_spend > 0 else 0
+                "item_share_pct": round(len(c_items) / total_parts * 100.0, 1) if total_parts else 0,
+                "spend_inr": round(c_spend, 2),
+                "spend_share_pct": round(c_spend / total_spend * 100.0, 1) if total_spend > 0 else 0
             }
         },
-        "pareto_curve": pareto_points
+        "distribution": distribution,
+        "pareto_curve": pareto_points,
+        "items": items_list
     }
 
 @router.get("/sos")
@@ -252,15 +319,215 @@ def get_sos_analysis(db: Session = Depends(get_db)):
 
     s_count = db.query(PartClassification).filter(PartClassification.sos_class == "S").count()
     os_count = db.query(PartClassification).filter(PartClassification.sos_class == "OS").count()
+    total = s_count + os_count
 
     return {
         "monthly_aggregate": monthly_series,
         "counts": {
-            "S": {"name": "Seasonal", "count": s_count},
-            "OS": {"name": "Off-Seasonal", "count": os_count}
+            "S": {"name": "Seasonal", "count": s_count, "pct": round(s_count / total * 100, 1) if total else 0},
+            "OS": {"name": "Off-Seasonal", "count": os_count, "pct": round(os_count / total * 100, 1) if total else 0}
         },
+        "distribution": [
+            {"category": "S", "name": "Seasonal (S)", "count": s_count, "percentage_items": round(s_count / total * 100, 1) if total else 0, "color": "#ea580c"},
+            {"category": "OS", "name": "Off-Seasonal (OS)", "count": os_count, "percentage_items": round(os_count / total * 100, 1) if total else 0, "color": "#0284c7"}
+        ],
         "peak_months": ["May (Pre-Monsoon)", "June (Monsoon Start)", "December (Winter Fog Condition)"]
     }
+
+@router.get("/method/{method_name}")
+def get_classification_by_method(method_name: str, db: Session = Depends(get_db)):
+    """
+    Returns unified classification intelligence for any of the 7 selective control methods:
+    abc, sde, ved, hml, sos, golf, fsn.
+    Provides KPIs, category distribution array, and individual SKU records for tables.
+    """
+    method = method_name.lower().strip()
+    valid_methods = ["abc", "sde", "ved", "hml", "sos", "golf", "fsn"]
+    if method not in valid_methods:
+        raise HTTPException(status_code=400, detail=f"Invalid classification method '{method_name}'. Choose from: {valid_methods}")
+
+    parts = db.query(SparePart).join(PartClassification).join(InventoryMetric).order_by(desc(SparePart.annual_consumption_value_inr)).all()
+    total_parts = len(parts)
+    total_spend = sum(p.annual_consumption_value_inr for p in parts)
+
+    # Category definitions & color mappings per method
+    meta_map = {
+        "abc": {
+            "title": "ABC Analysis (Annual Consumption Expenditure)",
+            "col": lambda cls: cls.abc_class or "C",
+            "defs": [
+                {"code": "A", "name": "Class A (Tight Control)", "desc": "~70% cumulative spend; tight daily control & low safety buffer", "color": "#2563eb"},
+                {"code": "B", "name": "Class B (Moderate Control)", "desc": "Next ~20% cumulative spend (up to 90%); periodic review & moderate buffer", "color": "#0d9488"},
+                {"code": "C", "name": "Class C (Loose Control)", "desc": "Remaining ~10% cumulative spend; bulk ordering & generous buffer", "color": "#64748b"}
+            ]
+        },
+        "sde": {
+            "title": "SDE Analysis (Procurement Availability & Supply Difficulty)",
+            "col": lambda cls: cls.sde_class or "E",
+            "defs": [
+                {"code": "S", "name": "Scarce (S)", "desc": "Single authorized source, imported dependency, or long specialized manufacturing cycles", "color": "#9333ea"},
+                {"code": "D", "name": "Difficult (D)", "desc": "Limited approved railway vendors or moderate delivery lead-time variability", "color": "#2563eb"},
+                {"code": "E", "name": "Easily Available (E)", "desc": "Readily available from multiple approved open-market or local zonal depot suppliers", "color": "#16a34a"}
+            ]
+        },
+        "ved": {
+            "title": "VED Analysis (Operational Criticality & Safety Consequence)",
+            "col": lambda cls: cls.ved_class or "D",
+            "defs": [
+                {"code": "V", "name": "Vital (V)", "desc": "Absence directly breaches railway safety regulations or causes unscheduled mainline stoppage", "color": "#dc2626"},
+                {"code": "E", "name": "Essential (E)", "desc": "Causes operational disruption; temporary secondary buffer or scheduled substitution possible", "color": "#d97706"},
+                {"code": "D", "name": "Desirable (D)", "desc": "Non-critical auxiliary or comfort component with negligible operational impact", "color": "#64748b"}
+            ]
+        },
+        "hml": {
+            "title": "HML Analysis (Unit Cost Tiers)",
+            "col": lambda cls: cls.hml_class or "L",
+            "defs": [
+                {"code": "H", "name": "High Cost (H)", "desc": "Unit price >= ₹25,000; high capital risk requiring senior financial sign-off", "color": "#7c3aed"},
+                {"code": "M", "name": "Medium Cost (M)", "desc": "Unit price ₹5,000 - ₹25,000; standard rolling stock subsystem modules", "color": "#2563eb"},
+                {"code": "L", "name": "Low Cost (L)", "desc": "Unit price < ₹5,000; low monetary risk hardware, washers, and seals", "color": "#059669"}
+            ]
+        },
+        "sos": {
+            "title": "SOS Analysis (Monthly Seasonality)",
+            "col": lambda cls: cls.sos_class or "OS",
+            "defs": [
+                {"code": "S", "name": "Seasonal (S)", "desc": "Operational spikes during peak climate conditions (Monsoon, Summer HVAC, Winter Fog)", "color": "#ea580c"},
+                {"code": "OS", "name": "Off-Seasonal (OS)", "desc": "Year-round uniform consumption with stable maintenance cycle demand", "color": "#0284c7"}
+            ]
+        },
+        "golf": {
+            "title": "GOLF Analysis (Procurement Channel & Sourcing Origin)",
+            "col": lambda cls: cls.golf_class or "O",
+            "defs": [
+                {"code": "G", "name": "Government / PSU (G)", "desc": "Supplied by public sector undertakings (SAIL, BHEL) or central railway production units", "color": "#1d4ed8"},
+                {"code": "O", "name": "Open Market (O)", "desc": "Sourced through standard open-market railway e-procurement tenders (IREPS)", "color": "#0284c7"},
+                {"code": "L", "name": "Local Depot (L)", "desc": "Procured locally from divisional railway stores or regional workshops", "color": "#059669"},
+                {"code": "F", "name": "Foreign Import (F)", "desc": "Procured from foreign OEM or international railway consortium", "color": "#7c3aed"}
+            ]
+        },
+        "fsn": {
+            "title": "FSN Analysis (Store Turnover Rate & Movement Velocity)",
+            "col": lambda cls: cls.fsn_class or "S",
+            "defs": [
+                {"code": "F", "name": "Fast Moving (F)", "desc": "High turnover store item (> 12 issues per year across maintenance sheds)", "color": "#16a34a"},
+                {"code": "S", "name": "Slow Moving (S)", "desc": "Moderate scheduled overhaul parts (2 - 12 issues per year)", "color": "#2563eb"},
+                {"code": "N", "name": "Non-Moving / Dormant (N)", "desc": "0 - 1 issues recorded in last 12 months; dead-stock candidate", "color": "#d97706"}
+            ]
+        }
+    }
+
+    config = meta_map[method]
+    get_col = config["col"]
+
+    cum_spend = 0.0
+    items = []
+    category_items = {d["code"]: [] for d in config["defs"]}
+
+    for idx, p in enumerate(parts):
+        cls_obj = p.classification
+        met_obj = p.metrics
+        code = get_col(cls_obj) if cls_obj else config["defs"][-1]["code"]
+        
+        spend = p.annual_consumption_value_inr
+        cum_spend += spend
+        cum_pct = (cum_spend / total_spend * 100.0) if total_spend > 0 else 0.0
+        item_pct = ((idx + 1) / total_parts * 100.0) if total_parts > 0 else 0.0
+
+        label = next((d["name"] for d in config["defs"] if d["code"] == code), code)
+
+        item_dict = {
+            "rank": idx + 1,
+            "part_id": p.part_id,
+            "part_name": p.part_name,
+            "category": p.category,
+            "annual_usage_units": p.annual_usage_units,
+            "unit_price_inr": p.unit_price_inr,
+            "annual_consumption_value_inr": spend,
+            "current_stock_units": p.current_stock_units,
+            "lead_time_days": p.lead_time_days,
+            "supplier_id": p.supplier_id or "N/A",
+            "class_code": code,
+            "class_label": label,
+            "cumulative_expenditure_pct": round(cum_pct, 2),
+            "item_cumulative_pct": round(item_pct, 2),
+            "reason": (cls_obj.classification_reason if cls_obj else "") or "Evaluated by Stock Sentry Multi-Classification Engine.",
+            "safety_impact": (cls_obj.safety_impact if cls_obj else "") or "Standard operational consequence",
+            "operational_impact": (cls_obj.operational_impact if cls_obj else "") or "Standard maintenance replenishment",
+            "stock_status": met_obj.stock_status if met_obj else "HEALTHY"
+        }
+        items.append(item_dict)
+        if code in category_items:
+            category_items[code].append(item_dict)
+
+    # Compute distribution
+    distribution = []
+    for d in config["defs"]:
+        c_code = d["code"]
+        cat_parts = category_items.get(c_code, [])
+        cat_spend = sum(x["annual_consumption_value_inr"] for x in cat_parts)
+        distribution.append({
+            "category": c_code,
+            "name": d["name"],
+            "description": d["desc"],
+            "count": len(cat_parts),
+            "percentage_items": round((len(cat_parts) / total_parts * 100.0) if total_parts > 0 else 0.0, 1),
+            "total_spend_inr": round(cat_spend, 2),
+            "spend_share_pct": round((cat_spend / total_spend * 100.0) if total_spend > 0 else 0.0, 1),
+            "color": d["color"]
+        })
+
+    response = {
+        "method": method,
+        "title": config["title"],
+        "total_parts": total_parts,
+        "total_annual_spend_inr": round(total_spend, 2),
+        "distribution": distribution,
+        "items": items
+    }
+
+    if method == "abc":
+        pareto_points = []
+        for idx, item in enumerate(items):
+            if idx < 50 or idx % 3 == 0 or idx == total_parts - 1:
+                pareto_points.append({
+                    "rank": item["rank"],
+                    "part_id": item["part_id"],
+                    "part_name": item["part_name"],
+                    "annual_spend": item["annual_consumption_value_inr"],
+                    "spend_in_thousands": round(item["annual_consumption_value_inr"] / 1000.0, 1),
+                    "item_cumulative_pct": item["item_cumulative_pct"],
+                    "spend_cumulative_pct": item["cumulative_expenditure_pct"],
+                    "abc_class": item["class_code"]
+                })
+        response["pareto_curve"] = pareto_points
+        response["summary"] = {
+            d["category"]: {
+                "count": d["count"],
+                "item_share_pct": d["percentage_items"],
+                "spend_inr": d["total_spend_inr"],
+                "spend_share_pct": d["spend_share_pct"]
+            }
+            for d in distribution
+        }
+
+    if method == "sos":
+        month_data = db.query(DemandHistory.month, func.sum(DemandHistory.demand_quantity), func.sum(DemandHistory.issue_quantity))\
+                       .group_by(DemandHistory.month).order_by(DemandHistory.month).all()
+        month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        monthly_series = []
+        for m in range(1, 13):
+            rec = next((r for r in month_data if r[0] == m), None)
+            monthly_series.append({
+                "month_num": m,
+                "month_name": month_names[m - 1],
+                "total_demand": round(float(rec[1] or 0.0), 1) if rec else 0.0,
+                "total_issues": round(float(rec[2] or 0.0), 1) if rec else 0.0
+            })
+        response["monthly_aggregate"] = monthly_series
+        response["peak_months"] = ["May (Pre-Monsoon)", "June (Monsoon Start)", "December (Winter Fog Condition)"]
+
+    return response
 
 @router.put("/{part_id}")
 def update_part_classification(part_id: str, payload: ClassificationUpdate, db: Session = Depends(get_db)):

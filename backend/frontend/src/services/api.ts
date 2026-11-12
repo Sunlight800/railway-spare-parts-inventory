@@ -105,6 +105,12 @@ export const api = {
     return res.json();
   },
 
+  getClassificationMethodDetails: async (method: string) => {
+    const res = await fetch(`${API_BASE}/classifications/method/${method}`);
+    if (!res.ok) throw new Error(`Failed to fetch classification details for ${method}`);
+    return res.json();
+  },
+
   updateClassification: async (partId: string, payload: any) => {
     const res = await fetch(`${API_BASE}/classifications/${partId}`, {
       method: 'PUT',
