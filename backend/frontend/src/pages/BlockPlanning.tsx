@@ -67,7 +67,7 @@ export const BlockPlanning: React.FC = () => {
     return (
       <div className="py-24 text-center text-slate-500">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm font-medium">Evaluating BOM Bill-of-Materials Availability & Block Windows...</p>
+        <p className="text-sm font-medium">Evaluating Rolling Stock BOM Availability & Block Windows...</p>
       </div>
     );
   }
@@ -83,14 +83,14 @@ export const BlockPlanning: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Inventory-Led Indicative Maintenance Block Planning
+              STOCK SENTRY — Indicative Maintenance Block Planning
             </h1>
             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
               Decision Support
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Prioritizes rolling stock and track maintenance packages based on physical store material readiness and VED criticality.
+            Prioritizes rolling stock and track maintenance packages based on physical store material readiness and VED criticality — Team TRACKBYTE.
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export const BlockPlanning: React.FC = () => {
         <AlertTriangle className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
         <div className="space-y-1">
           <strong className="font-bold block text-amber-950">
-            Mandatory Operational Limitation (Academic Decision Support Only)
+            Mandatory Operational Limitation (Academic Decision Support Only — Stock Sentry / TrackByte)
           </strong>
           <p className="leading-relaxed">
             The supplied dataset does not contain real-time railway timetables, live train movements, signalling interlocking states, or traction power-block approvals. Therefore, this module provides <strong>inventory-led decision support</strong> to prioritize maintenance work packages before formal operational requisition. No real-world railway block can be taken without authorized Operating Department & Power Controller possessions.

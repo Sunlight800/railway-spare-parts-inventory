@@ -81,10 +81,10 @@ export const ClassificationAnalysis: React.FC<ClassificationAnalysisProps> = ({ 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Multi-Parameter Selective Inventory Control Analysis
+            STOCK SENTRY — Multi-Parameter Selective Inventory Control
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Individual evaluation of ABC, SDE, VED, HML, SOS, GOLF, and FSN techniques for Indian Railways rolling stock.
+            Individual evaluation of ABC, SDE, VED, HML, SOS, GOLF, and FSN techniques for railway rolling stock — Team TRACKBYTE.
           </p>
         </div>
 

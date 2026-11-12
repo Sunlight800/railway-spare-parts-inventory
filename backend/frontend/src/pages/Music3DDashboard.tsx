@@ -74,14 +74,14 @@ export const Music3DDashboard: React.FC<Music3DDashboardProps> = ({ onSelectPart
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Complete MUSIC-3D Inventory Classification Model
+              STOCK SENTRY — Complete MUSIC-3D Classification Model
             </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
               27 Combinations (ABC × SDE × VED)
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Academic LSCM framework combining Annual Usage Spend, Sourcing Availability, and Rolling Stock Operational Criticality.
+            Academic LSCM framework combining Annual Usage Spend, Sourcing Availability, and Rolling Stock Operational Criticality — Team TRACKBYTE.
           </p>
         </div>
 
@@ -114,7 +114,7 @@ export const Music3DDashboard: React.FC<Music3DDashboardProps> = ({ onSelectPart
           <div className="space-y-2 max-w-4xl">
             <div className="flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-wider">
               <Sparkles className="w-4 h-4 text-amber-400" />
-              How the MUSIC-3D Model Works in Indian Railways
+              How the MUSIC-3D Model Operates in Railway Inventory Intelligence
             </div>
             <p className="text-xs text-slate-200 leading-relaxed">
               Standard 1-dimensional ABC analysis focuses solely on monetary expenditure, which creates catastrophic blindspots in railway operations where an inexpensive ₹400 relay or pneumatic seal can halt a Rajdhani express or coal freight rake. <strong>MUSIC-3D synthesizes 3 critical dimensions</strong>:

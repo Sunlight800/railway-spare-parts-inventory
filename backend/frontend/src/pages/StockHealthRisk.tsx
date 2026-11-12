@@ -70,10 +70,10 @@ export const StockHealthRisk: React.FC<StockHealthRiskProps> = ({ onSelectPart }
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Depot Stock Health & Monte Carlo Stockout Surveillance
+            STOCK SENTRY — Depot Stock Health & Monte Carlo Surveillance
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Surveillance of inventory buffers, reorder points, and simulated stockout probability vs MUSIC-3D targets.
+            Surveillance of inventory buffers, reorder points, and simulated stockout probability vs MUSIC-3D targets — Team TRACKBYTE.
           </p>
         </div>
 

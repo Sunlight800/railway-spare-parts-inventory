@@ -13,7 +13,13 @@ import {
   X,
   TrendingUp,
   Truck,
-  Sparkles
+  Sparkles,
+  Plus,
+  Trash2,
+  Edit,
+  Save,
+  PackagePlus,
+  SlidersHorizontal
 } from 'lucide-react';
 import { api } from '../services/api';
 import { SparePartItem } from '../types';
@@ -36,6 +42,40 @@ export const InventoryExplorer: React.FC<InventoryExplorerProps> = ({
   const [totalPages, setTotalPages] = useState<number>(1);
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // CRUD State
+  const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [addForm, setAddForm] = useState({
+    part_id: '',
+    part_name: '',
+    category: 'Braking',
+    unit_price_inr: 1000,
+    annual_usage_units: 50,
+    current_stock_units: 20,
+    lead_time_days: 30,
+    supplier_id: 'SUP-101',
+    legacy_criticality: 'Vital'
+  });
+  const [addLoading, setAddLoading] = useState<boolean>(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const [editingPart, setEditingPart] = useState<SparePartItem | null>(null);
+  const [editForm, setEditForm] = useState({
+    part_name: '',
+    category: 'Braking',
+    unit_price_inr: 0,
+    annual_usage_units: 0,
+    current_stock_units: 0,
+    lead_time_days: 30,
+    supplier_id: '',
+    legacy_criticality: 'Vital'
+  });
+  const [editLoading, setEditLoading] = useState<boolean>(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [quickStockPart, setQuickStockPart] = useState<SparePartItem | null>(null);
+  const [quickStockQty, setQuickStockQty] = useState<number>(0);
+  const [quickStockLoading, setQuickStockLoading] = useState<boolean>(false);
 
   // Filters
   const [search, setSearch] = useState<string>(initialSearch);
@@ -109,23 +149,147 @@ export const InventoryExplorer: React.FC<InventoryExplorerProps> = ({
       });
   }, [activePartId]);
 
+  // CRUD Actions
+  const handleCreatePart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.part_id.trim() || !addForm.part_name.trim()) {
+      setAddError('Part ID and Part Name are required.');
+      return;
+    }
+    try {
+      setAddLoading(true);
+      setAddError(null);
+      await api.createSparePart({
+        ...addForm,
+        unit_price_inr: Number(addForm.unit_price_inr),
+        annual_usage_units: Number(addForm.annual_usage_units),
+        current_stock_units: Number(addForm.current_stock_units),
+        lead_time_days: Number(addForm.lead_time_days),
+      });
+      setShowAddModal(false);
+      setAddForm({
+        part_id: '',
+        part_name: '',
+        category: 'Braking',
+        unit_price_inr: 1000,
+        annual_usage_units: 50,
+        current_stock_units: 20,
+        lead_time_days: 30,
+        supplier_id: 'SUP-101',
+        legacy_criticality: 'Vital'
+      });
+      fetchParts();
+    } catch (err: any) {
+      setAddError(err.message || 'Failed to create spare part');
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const openEditModal = (p: SparePartItem) => {
+    setEditingPart(p);
+    setEditForm({
+      part_name: p.part_name,
+      category: p.category,
+      unit_price_inr: p.unit_price_inr,
+      annual_usage_units: p.annual_usage_units,
+      current_stock_units: p.current_stock_units,
+      lead_time_days: p.lead_time_days,
+      supplier_id: p.supplier_id || 'SUP-101',
+      legacy_criticality: p.legacy_criticality || 'Vital'
+    });
+    setEditError(null);
+  };
+
+  const handleSaveEditPart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPart) return;
+    try {
+      setEditLoading(true);
+      setEditError(null);
+      await api.updateSparePart(editingPart.part_id, {
+        ...editForm,
+        unit_price_inr: Number(editForm.unit_price_inr),
+        annual_usage_units: Number(editForm.annual_usage_units),
+        current_stock_units: Number(editForm.current_stock_units),
+        lead_time_days: Number(editForm.lead_time_days),
+      });
+      setEditingPart(null);
+      fetchParts();
+      if (activePartId === editingPart.part_id) {
+        api.getSparePartDetail(editingPart.part_id).then(setDetailData).catch(console.error);
+      }
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update spare part');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeletePart = async (partId: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete spare part "${partId}"? This will delete all associated classifications and metrics.`)) {
+      return;
+    }
+    try {
+      await api.deleteSparePart(partId);
+      if (activePartId === partId) {
+        setActivePartId(null);
+      }
+      fetchParts();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete part');
+    }
+  };
+
+  const openQuickStockModal = (p: SparePartItem) => {
+    setQuickStockPart(p);
+    setQuickStockQty(p.current_stock_units);
+  };
+
+  const handleSaveQuickStock = async () => {
+    if (!quickStockPart) return;
+    try {
+      setQuickStockLoading(true);
+      await api.quickUpdateStock(quickStockPart.part_id, Number(quickStockQty));
+      setQuickStockPart(null);
+      fetchParts();
+      if (activePartId === quickStockPart.part_id) {
+        api.getSparePartDetail(quickStockPart.part_id).then(setDetailData).catch(console.error);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to adjust stock');
+    } finally {
+      setQuickStockLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Indian Railways Spare-Part Inventory Explorer
+            STOCK SENTRY — Spare-Part Inventory Explorer
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Individual inspection of all 200 catalogued spare parts with 7 selective control dimensions.
+            Individual inspection, stock adjustment, and full CRUD control across catalogued spare parts — Team TRACKBYTE.
           </p>
         </div>
 
-        <div className="flex items-center space-x-2 text-xs font-mono text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-          <span>Total Records: <strong className="text-slate-900">{totalCount}</strong></span>
-          <span>•</span>
-          <span>Page {page} of {totalPages}</span>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-sm transition border border-sky-400"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Spare Part</span>
+          </button>
+
+          <div className="flex items-center space-x-2 text-xs font-mono text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+            <span>Total Records: <strong className="text-slate-900">{totalCount}</strong></span>
+            <span>•</span>
+            <span>Page {page} of {totalPages}</span>
+          </div>
         </div>
       </div>
 
@@ -368,9 +532,36 @@ export const InventoryExplorer: React.FC<InventoryExplorerProps> = ({
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-center">
-                      <button className="text-blue-600 hover:text-blue-800 font-semibold text-[11px] p-1 rounded hover:bg-blue-50">
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => setActivePartId(p.part_id)}
+                          title="Inspect Part Details"
+                          className="text-sky-600 hover:text-sky-800 p-1 rounded hover:bg-sky-50 transition"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openQuickStockModal(p)}
+                          title="Quick Stock Adjustment"
+                          className="text-amber-600 hover:text-amber-800 p-1 rounded hover:bg-amber-50 transition"
+                        >
+                          <SlidersHorizontal className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openEditModal(p)}
+                          title="Edit Part Specifications"
+                          className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePart(p.part_id)}
+                          title="Delete Spare Part"
+                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -606,8 +797,62 @@ export const InventoryExplorer: React.FC<InventoryExplorerProps> = ({
             </div>
 
             {/* Drawer Footer */}
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
-              <span className="font-mono text-[11px]">Provenance: {detailData?.data_source}</span>
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-between items-center gap-3 text-xs">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    const currentItem = parts.find((p) => p.part_id === activePartId);
+                    if (currentItem) openQuickStockModal(currentItem);
+                    else if (detailData) {
+                      setQuickStockPart({
+                        part_id: detailData.part_id,
+                        part_name: detailData.part_name,
+                        current_stock_units: detailData.current_stock_units
+                      } as any);
+                      setQuickStockQty(detailData.current_stock_units);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-sm transition"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Adjust Stock</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const currentItem = parts.find((p) => p.part_id === activePartId);
+                    if (currentItem) openEditModal(currentItem);
+                    else if (detailData) {
+                      openEditModal({
+                        part_id: detailData.part_id,
+                        part_name: detailData.part_name,
+                        category: detailData.category,
+                        unit_price_inr: detailData.unit_price_inr,
+                        annual_usage_units: detailData.annual_usage_units,
+                        current_stock_units: detailData.current_stock_units,
+                        lead_time_days: detailData.lead_time_days,
+                        supplier_id: detailData.supplier_id,
+                        legacy_criticality: detailData.legacy_criticality
+                      } as any);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-semibold flex items-center gap-1.5 shadow-sm transition"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  <span>Edit Part</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (activePartId) handleDeletePart(activePartId);
+                  }}
+                  className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-semibold flex items-center gap-1.5 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Part</span>
+                </button>
+              </div>
+
               <button
                 onClick={() => {
                   setActivePartId(null);
@@ -617,6 +862,470 @@ export const InventoryExplorer: React.FC<InventoryExplorerProps> = ({
               >
                 Close Drawer
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- ADD PART MODAL --- */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <PackagePlus className="w-5 h-5 text-sky-400" />
+                <h3 className="font-bold text-sm">Add New Spare Part to Inventory</h3>
+              </div>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreatePart} className="p-5 space-y-4 text-xs">
+              {addError && (
+                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{addError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Part ID *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. SP-1201"
+                    value={addForm.part_id}
+                    onChange={(e) => setAddForm({ ...addForm, part_id: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Subsystem / Category *
+                  </label>
+                  <select
+                    value={addForm.category}
+                    onChange={(e) => setAddForm({ ...addForm, category: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="Braking">Braking System</option>
+                    <option value="Pneumatic">Pneumatic System</option>
+                    <option value="Bogie">Bogie Assembly</option>
+                    <option value="Electrical">Electrical System</option>
+                    <option value="Control">Control & Interlocking</option>
+                    <option value="Door system">Door System</option>
+                    <option value="Coupling">Coupling & CBC</option>
+                    <option value="Mechanical">Mechanical Track Machine</option>
+                    <option value="General">General Depot Spares</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  Part Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Brake Caliper Seal Kit"
+                  value={addForm.part_name}
+                  onChange={(e) => setAddForm({ ...addForm, part_name: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Unit Price (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    required
+                    value={addForm.unit_price_inr}
+                    onChange={(e) => setAddForm({ ...addForm, unit_price_inr: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Annual Usage (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={addForm.annual_usage_units}
+                    onChange={(e) => setAddForm({ ...addForm, annual_usage_units: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Current Stock (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={addForm.current_stock_units}
+                    onChange={(e) => setAddForm({ ...addForm, current_stock_units: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Lead Time (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={addForm.lead_time_days}
+                    onChange={(e) => setAddForm({ ...addForm, lead_time_days: parseInt(e.target.value) || 30 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Supplier ID
+                  </label>
+                  <input
+                    type="text"
+                    value={addForm.supplier_id}
+                    onChange={(e) => setAddForm({ ...addForm, supplier_id: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Criticality
+                  </label>
+                  <select
+                    value={addForm.legacy_criticality}
+                    onChange={(e) => setAddForm({ ...addForm, legacy_criticality: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                  >
+                    <option value="Vital">Vital (Line Halt Impact)</option>
+                    <option value="Essential">Essential (Performance Disruption)</option>
+                    <option value="Desirable">Desirable (Auxiliary)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addLoading}
+                  className="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-sm transition disabled:opacity-50"
+                >
+                  {addLoading ? 'Saving...' : 'Add Part & Auto-Classify'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- EDIT PART MODAL --- */}
+      {editingPart && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Edit className="w-5 h-5 text-sky-400" />
+                <h3 className="font-bold text-sm">
+                  Edit Spare Part: <span className="font-mono text-sky-300">{editingPart.part_id}</span>
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingPart(null)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditPart} className="p-5 space-y-4 text-xs">
+              {editError && (
+                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  Part Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.part_name}
+                  onChange={(e) => setEditForm({ ...editForm, part_name: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Subsystem / Category
+                  </label>
+                  <select
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="Braking">Braking System</option>
+                    <option value="Pneumatic">Pneumatic System</option>
+                    <option value="Bogie">Bogie Assembly</option>
+                    <option value="Electrical">Electrical System</option>
+                    <option value="Control">Control & Interlocking</option>
+                    <option value="Door system">Door System</option>
+                    <option value="Coupling">Coupling & CBC</option>
+                    <option value="Mechanical">Mechanical Track Machine</option>
+                    <option value="General">General Depot Spares</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Criticality
+                  </label>
+                  <select
+                    value={editForm.legacy_criticality}
+                    onChange={(e) => setEditForm({ ...editForm, legacy_criticality: e.target.value })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold"
+                  >
+                    <option value="Vital">Vital (Line Halt Impact)</option>
+                    <option value="Essential">Essential (Performance Disruption)</option>
+                    <option value="Desirable">Desirable (Auxiliary)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Unit Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editForm.unit_price_inr}
+                    onChange={(e) => setEditForm({ ...editForm, unit_price_inr: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Annual Usage (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editForm.annual_usage_units}
+                    onChange={(e) => setEditForm({ ...editForm, annual_usage_units: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Current Stock (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={editForm.current_stock_units}
+                    onChange={(e) => setEditForm({ ...editForm, current_stock_units: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                    Lead Time (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={editForm.lead_time_days}
+                    onChange={(e) => setEditForm({ ...editForm, lead_time_days: parseInt(e.target.value) || 30 })}
+                    className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  Supplier ID
+                </label>
+                <input
+                  type="text"
+                  value={editForm.supplier_id}
+                  onChange={(e) => setEditForm({ ...editForm, supplier_id: e.target.value })}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingPart(null)}
+                  className="px-4 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="px-4 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-sm transition disabled:opacity-50"
+                >
+                  {editLoading ? 'Saving...' : 'Update & Recalculate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- QUICK STOCK ADJUST MODAL --- */}
+      {quickStockPart && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-amber-400" />
+                <h3 className="font-bold text-sm">Quick Stock Adjustment</h3>
+              </div>
+              <button
+                onClick={() => setQuickStockPart(null)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div>
+                <span className="font-mono text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                  {quickStockPart.part_id}
+                </span>
+                <h4 className="font-bold text-slate-800 text-sm mt-1">{quickStockPart.part_name}</h4>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                <div className="flex justify-between text-slate-500">
+                  <span>Current Floor Stock:</span>
+                  <span className="font-mono font-bold text-slate-800">{quickStockPart.current_stock_units} units</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
+                  New Stock Quantity (Units)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={quickStockQty}
+                  onChange={(e) => setQuickStockQty(parseFloat(e.target.value) || 0)}
+                  className="w-full px-3 py-2 text-base font-mono font-bold border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              {/* Fast Increment Shortcuts */}
+              <div className="flex items-center gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setQuickStockQty((q) => Math.max(0, q - 10))}
+                  className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 rounded font-mono font-bold text-slate-700"
+                >
+                  -10
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickStockQty((q) => Math.max(0, q - 1))}
+                  className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 rounded font-mono font-bold text-slate-700"
+                >
+                  -1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickStockQty((q) => q + 1)}
+                  className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 rounded font-mono font-bold text-slate-700"
+                >
+                  +1
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickStockQty((q) => q + 10)}
+                  className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 rounded font-mono font-bold text-slate-700"
+                >
+                  +10
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuickStockQty(0)}
+                  className="px-2 py-1 bg-red-100 hover:bg-red-200 rounded font-mono font-bold text-red-700"
+                  title="Simulate Out of Stock"
+                >
+                  Zero
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setQuickStockPart(null)}
+                  className="px-4 py-1.5 border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickStock}
+                  disabled={quickStockLoading}
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold shadow-sm transition disabled:opacity-50"
+                >
+                  {quickStockLoading ? 'Updating...' : 'Save Stock'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

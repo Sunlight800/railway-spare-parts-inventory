@@ -66,14 +66,14 @@ export const DataManagement: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Data Management, Import Validation & Master Reset
+              STOCK SENTRY — Data Management, Import Validation & Master Reset
             </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
               Excel / CSV Engine
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Import rolling stock inventory files, execute validation checks, and recompute MUSIC-3D classifications.
+            Import rolling stock inventory files, execute validation checks, and recompute MUSIC-3D classifications — Team TRACKBYTE.
           </p>
         </div>
 

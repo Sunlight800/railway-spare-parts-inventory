@@ -134,14 +134,14 @@ export const SimulationStudio: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              Simulation Studio: What-If Supply Chain & Availability Lab
+              STOCK SENTRY — Simulation Studio: What-If Supply Chain Lab
             </h1>
             <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
               Monte Carlo Engine
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Test shocks, demand surges, supplier delays, and buffer policies on rolling stock availability.
+            Test shocks, demand surges, supplier delays, and buffer policies on rolling stock availability — Team TRACKBYTE.
           </p>
         </div>
 

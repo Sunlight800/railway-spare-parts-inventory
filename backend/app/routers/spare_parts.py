@@ -2,7 +2,7 @@
 Spare Parts Router: CRUD, Search, Filter, Pagination, and Detailed Inspection
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc, asc
 from typing import Optional, List, Dict, Any
@@ -15,6 +15,9 @@ from app.models.entities import (
 from app.schemas.api_schemas import SparePartCreate, SparePartUpdate
 from app.services.music3d_engine import compose_music3d_code
 from app.services.inventory_metrics import compute_part_metrics
+from app.services.classification_engine import (
+    classify_sde, classify_ved, classify_hml, classify_sos, classify_golf, classify_fsn
+)
 
 router = APIRouter(prefix="/api/spare-parts", tags=["Spare Parts"])
 
@@ -246,4 +249,245 @@ def get_spare_part_detail(part_id: str, db: Session = Depends(get_db)):
         "recent_transactions": txn_list,
         "linked_assets": linked_assets,
         "data_source": sp.data_source
+    }
+
+@router.post("", status_code=201)
+def create_spare_part(payload: SparePartCreate, db: Session = Depends(get_db)):
+    """Creates a new spare part record and computes initial classifications and metrics."""
+    pid = payload.part_id.strip()
+    existing = db.query(SparePart).filter(SparePart.part_id == pid).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Spare part ID '{pid}' already exists.")
+
+    usage = max(0.0, float(payload.annual_usage_units))
+    price = max(0.0, float(payload.unit_price_inr))
+    spend = round(usage * price, 2)
+    stock = max(0.0, float(payload.current_stock_units))
+    lt = max(1, int(payload.lead_time_days))
+
+    # Determine initial ABC class based on consumption spend
+    if spend >= 500000:
+        abc_cls = "A"
+    elif spend >= 100000:
+        abc_cls = "B"
+    else:
+        abc_cls = "C"
+
+    sde_cls, sde_reason = classify_sde(supplier_count=2, alternate_supplier_count=1, lead_time_days=lt)
+    ved_cls, ved_reason = classify_ved(payload.category, payload.part_name, payload.legacy_criticality)
+    code, meta = compose_music3d_code(abc_cls, sde_cls, ved_cls)
+    hml_cls, _ = classify_hml(price)
+    sos_cls, _ = classify_sos(None, payload.category, payload.part_name)
+    golf_cls, _ = classify_golf("Domestic", "Private", False)
+    fsn_cls, _ = classify_fsn(12, 1)
+
+    sl = meta["service_level"] if meta else 90.0
+    z = meta["z_score"] if meta else 1.28
+    target_prob = meta["target_stockout_prob"] if meta else 0.10
+
+    metrics = compute_part_metrics(
+        annual_usage=usage,
+        lead_time_days=lt,
+        current_stock=stock,
+        z_score=z,
+        service_level=sl
+    )
+
+    sp = SparePart(
+        part_id=pid,
+        part_name=payload.part_name.strip(),
+        category=payload.category.strip(),
+        annual_usage_units=usage,
+        unit_price_inr=price,
+        annual_consumption_value_inr=spend,
+        current_stock_units=stock,
+        lead_time_days=lt,
+        supplier_id=payload.supplier_id.strip() if payload.supplier_id else "SUP-001",
+        legacy_criticality=payload.legacy_criticality or "Critical",
+        data_source="User Registered Part"
+    )
+    db.add(sp)
+
+    cls_obj = PartClassification(
+        part_id=pid,
+        abc_class=abc_cls,
+        sde_class=sde_cls,
+        ved_class=ved_cls,
+        music3d_code=code,
+        service_level=sl,
+        z_score=z,
+        target_stockout_probability=target_prob,
+        hml_class=hml_cls,
+        sos_class=sos_cls,
+        golf_class=golf_cls,
+        fsn_class=fsn_cls,
+        classification_status="AI_SUGGESTED",
+        classification_reason="Computed on creation"
+    )
+    db.add(cls_obj)
+
+    met_obj = InventoryMetric(
+        part_id=pid,
+        average_daily_demand=metrics["average_daily_demand"],
+        lead_time_demand=metrics["lead_time_demand"],
+        safety_stock=metrics["safety_stock"],
+        reorder_point=metrics["reorder_point"],
+        stock_cover_days=metrics["stock_cover_days"],
+        target_stockout_probability=metrics["target_stockout_prob"],
+        estimated_stockout_risk=metrics["estimated_stockout_risk"],
+        risk_gap=metrics["risk_gap"],
+        estimated_fill_rate=metrics["estimated_fill_rate"],
+        stock_status=metrics["stock_status"]
+    )
+    db.add(met_obj)
+
+    txn = StockTransaction(
+        part_id=pid,
+        transaction_type="RECEIPT",
+        quantity=stock,
+        reference="REGISTRATION",
+        remarks="Initial stock registration"
+    )
+    db.add(txn)
+
+    db.commit()
+    db.refresh(sp)
+    return {"status": "SUCCESS", "part_id": sp.part_id, "message": "Spare part created successfully."}
+
+@router.put("/{part_id}")
+def update_spare_part(part_id: str, payload: SparePartUpdate, db: Session = Depends(get_db)):
+    """Updates spare part attributes and recalculates consumption value and metrics."""
+    sp = db.query(SparePart).filter(SparePart.part_id == part_id).first()
+    if not sp:
+        raise HTTPException(status_code=404, detail=f"Spare part '{part_id}' not found.")
+
+    old_stock = sp.current_stock_units
+    if payload.part_name is not None:
+        sp.part_name = payload.part_name.strip()
+    if payload.category is not None:
+        sp.category = payload.category.strip()
+    if payload.annual_usage_units is not None:
+        sp.annual_usage_units = max(0.0, float(payload.annual_usage_units))
+    if payload.unit_price_inr is not None:
+        sp.unit_price_inr = max(0.0, float(payload.unit_price_inr))
+    if payload.current_stock_units is not None:
+        sp.current_stock_units = max(0.0, float(payload.current_stock_units))
+    if payload.lead_time_days is not None:
+        sp.lead_time_days = max(1, int(payload.lead_time_days))
+    if payload.supplier_id is not None:
+        sp.supplier_id = payload.supplier_id.strip()
+    if payload.legacy_criticality is not None:
+        sp.legacy_criticality = payload.legacy_criticality
+
+    sp.annual_consumption_value_inr = round(sp.annual_usage_units * sp.unit_price_inr, 2)
+
+    # Record transaction if stock changed
+    if payload.current_stock_units is not None and payload.current_stock_units != old_stock:
+        delta = sp.current_stock_units - old_stock
+        txn = StockTransaction(
+            part_id=part_id,
+            transaction_type="ADJUSTMENT" if delta > 0 else "ISSUE",
+            quantity=abs(delta),
+            reference="INVENTORY_UPDATE",
+            remarks=f"Stock manually changed from {old_stock} to {sp.current_stock_units}"
+        )
+        db.add(txn)
+
+    # Recalculate metrics
+    cls_obj = sp.classification
+    met_obj = sp.metrics
+
+    sl = cls_obj.service_level if cls_obj and cls_obj.service_level else 90.0
+    z = cls_obj.z_score if cls_obj and cls_obj.z_score else 1.28
+
+    metrics = compute_part_metrics(
+        annual_usage=sp.annual_usage_units,
+        lead_time_days=sp.lead_time_days,
+        current_stock=sp.current_stock_units,
+        z_score=z,
+        service_level=sl
+    )
+
+    if met_obj:
+        met_obj.average_daily_demand = metrics["average_daily_demand"]
+        met_obj.lead_time_demand = metrics["lead_time_demand"]
+        met_obj.safety_stock = metrics["safety_stock"]
+        met_obj.reorder_point = metrics["reorder_point"]
+        met_obj.stock_cover_days = metrics["stock_cover_days"]
+        met_obj.estimated_stockout_risk = metrics["estimated_stockout_risk"]
+        met_obj.risk_gap = metrics["risk_gap"]
+        met_obj.estimated_fill_rate = metrics["estimated_fill_rate"]
+        met_obj.stock_status = metrics["stock_status"]
+
+    db.commit()
+    return {"status": "SUCCESS", "part_id": sp.part_id, "message": "Spare part updated successfully."}
+
+@router.delete("/{part_id}")
+def delete_spare_part(part_id: str, db: Session = Depends(get_db)):
+    """Deletes a spare part and its associated metric and classification records."""
+    sp = db.query(SparePart).filter(SparePart.part_id == part_id).first()
+    if not sp:
+        raise HTTPException(status_code=404, detail=f"Spare part '{part_id}' not found.")
+
+    db.query(PartClassification).filter(PartClassification.part_id == part_id).delete()
+    db.query(InventoryMetric).filter(InventoryMetric.part_id == part_id).delete()
+    db.query(DemandHistory).filter(DemandHistory.part_id == part_id).delete()
+    db.query(StockTransaction).filter(StockTransaction.part_id == part_id).delete()
+    db.query(AssetPartLink).filter(AssetPartLink.part_id == part_id).delete()
+    db.delete(sp)
+    db.commit()
+    return {"status": "SUCCESS", "message": f"Spare part '{part_id}' deleted successfully."}
+
+@router.patch("/{part_id}/stock")
+def quick_update_stock(part_id: str, quantity: float = Body(..., embed=True), db: Session = Depends(get_db)):
+    """Fast stock adjustment endpoint for depot engineers."""
+    sp = db.query(SparePart).filter(SparePart.part_id == part_id).first()
+    if not sp:
+        raise HTTPException(status_code=404, detail=f"Spare part '{part_id}' not found.")
+
+    old_stock = sp.current_stock_units
+    sp.current_stock_units = max(0.0, float(quantity))
+    delta = sp.current_stock_units - old_stock
+
+    txn = StockTransaction(
+        part_id=part_id,
+        transaction_type="ADJUSTMENT" if delta >= 0 else "ISSUE",
+        quantity=abs(delta),
+        reference="QUICK_STOCK_ADJUST",
+        remarks=f"Stock adjusted from {old_stock} to {sp.current_stock_units}"
+    )
+    db.add(txn)
+
+    cls_obj = sp.classification
+    met_obj = sp.metrics
+
+    sl = cls_obj.service_level if cls_obj and cls_obj.service_level else 90.0
+    z = cls_obj.z_score if cls_obj and cls_obj.z_score else 1.28
+
+    metrics = compute_part_metrics(
+        annual_usage=sp.annual_usage_units,
+        lead_time_days=sp.lead_time_days,
+        current_stock=sp.current_stock_units,
+        z_score=z,
+        service_level=sl
+    )
+
+    if met_obj:
+        met_obj.average_daily_demand = metrics["average_daily_demand"]
+        met_obj.lead_time_demand = metrics["lead_time_demand"]
+        met_obj.safety_stock = metrics["safety_stock"]
+        met_obj.reorder_point = metrics["reorder_point"]
+        met_obj.stock_cover_days = metrics["stock_cover_days"]
+        met_obj.estimated_stockout_risk = metrics["estimated_stockout_risk"]
+        met_obj.risk_gap = metrics["risk_gap"]
+        met_obj.estimated_fill_rate = metrics["estimated_fill_rate"]
+        met_obj.stock_status = metrics["stock_status"]
+
+    db.commit()
+    return {
+        "status": "SUCCESS",
+        "part_id": sp.part_id,
+        "new_stock": sp.current_stock_units,
+        "stock_status": met_obj.stock_status if met_obj else "HEALTHY",
+        "estimated_stockout_risk": met_obj.estimated_stockout_risk if met_obj else 0.0
     }

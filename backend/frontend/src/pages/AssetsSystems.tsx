@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TrainTrack, ShieldCheck, AlertTriangle, Layers, ChevronRight, Train, CheckCircle2 } from 'lucide-react';
+import { TrainTrack, ShieldCheck, AlertTriangle, Layers, ChevronRight, Train, CheckCircle2, Search, Filter } from 'lucide-react';
 import { api } from '../services/api';
 import { AssetItem } from '../types';
 
@@ -7,6 +7,8 @@ export const AssetsSystems: React.FC = () => {
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedAsset, setSelectedAsset] = useState<AssetItem | null>(null);
+  const [search, setSearch] = useState<string>('');
+  const [selectedSystem, setSelectedSystem] = useState<string>('ALL');
 
   useEffect(() => {
     api.getAssets()
@@ -29,26 +31,78 @@ export const AssetsSystems: React.FC = () => {
     );
   }
 
+  const systems = Array.from(new Set(assets.map((a) => a.system))).filter(Boolean);
+
+  const filteredAssets = assets.filter((a) => {
+    if (selectedSystem !== 'ALL' && a.system !== selectedSystem) return false;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      const matchId = a.asset_id.toLowerCase().includes(q);
+      const matchName = a.asset_name.toLowerCase().includes(q);
+      const matchLoc = a.location.toLowerCase().includes(q);
+      const matchSys = a.system.toLowerCase().includes(q);
+      if (!matchId && !matchName && !matchLoc && !matchSys) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* Title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Railway Assets & Bill-of-Materials (BOM) Subsystems
+            STOCK SENTRY — Assets & Bill-of-Materials (BOM) Subsystems
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Physical rolling stock and fixed track infrastructure mapped to spare-part assemblies and readiness.
+            Physical rolling stock and fixed track infrastructure mapped to spare-part assemblies and readiness — Team TRACKBYTE.
           </p>
         </div>
         <span className="text-xs font-mono text-slate-500 bg-white px-3 py-1 rounded-lg border border-slate-200">
-          Catalogued Assets: <strong>{assets.length}</strong>
+          Showing <strong>{filteredAssets.length}</strong> of <strong>{assets.length}</strong> Assets
         </span>
+      </div>
+
+      {/* Search & Subsystem Filter Bar */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search assets by ID, name, system, location..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <select
+            value={selectedSystem}
+            onChange={(e) => setSelectedSystem(e.target.value)}
+            className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium"
+          >
+            <option value="ALL">All Subsystems</option>
+            {systems.map((sys) => (
+              <option key={sys} value={sys}>{sys}</option>
+            ))}
+          </select>
+        </div>
+
+        {(search || selectedSystem !== 'ALL') && (
+          <button
+            onClick={() => { setSearch(''); setSelectedSystem('ALL'); }}
+            className="text-xs text-sky-600 hover:text-sky-800 font-medium underline"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
       {/* Asset Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {assets.map((a) => (
+        {filteredAssets.map((a) => (
           <div
             key={a.asset_id}
             onClick={() => setSelectedAsset(a)}

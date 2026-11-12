@@ -1,0 +1,28 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="shieldGrad" x1="10" y1="10" x2="90" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#1e3a8a" />
+      <stop offset="50%" stopColor="#0f172a" />
+      <stop offset="100%" stopColor="#0284c7" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="100%" stopColor="#2563eb" />
+    </linearGradient>
+    <linearGradient id="trackGrad" x1="50" y1="30" x2="50" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38bdf8" />
+      <stop offset="100%" stopColor="#60a5fa" />
+    </linearGradient>
+  </defs>
+  <path d="M50 8L86 22V50C86 71.5 70.8 89.2 50 94C29.2 89.2 14 71.5 14 50V22L50 8Z" fill="url(#shieldGrad)" stroke="url(#glowGrad)" stroke-width="3" stroke-linejoin="round" />
+  <path d="M50 14L80 26V49C80 67.5 67.2 82.8 50 87C32.8 82.8 20 67.5 20 49V26L50 14Z" fill="#091124" fill-opacity="0.75" />
+  <path d="M42 35L30 76" stroke="url(#trackGrad)" stroke-width="3" stroke-linecap="round" />
+  <path d="M58 35L70 76" stroke="url(#trackGrad)" stroke-width="3" stroke-linecap="round" />
+  <path d="M40 46L60 46" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M37 57L63 57" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" />
+  <path d="M33 68L67 68" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" />
+  <circle cx="50" cy="35" r="7" fill="#0284c7" stroke="#38bdf8" stroke-width="2" />
+  <circle cx="50" cy="35" r="2.5" fill="#ffffff" />
+  <path d="M46 30L50 25L54 30" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="50" cy="80" r="2" fill="#38bdf8" />
+</svg>

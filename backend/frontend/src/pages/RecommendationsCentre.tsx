@@ -38,7 +38,7 @@ export const RecommendationsCentre: React.FC<RecommendationsCentreProps> = ({ on
     return (
       <div className="py-24 text-center text-slate-500">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm font-medium">Synthesizing Explainable AI Recommendations...</p>
+        <p className="text-sm font-medium">Synthesizing Explainable Decision Support Rules & Recommendations...</p>
       </div>
     );
   }
@@ -59,14 +59,14 @@ export const RecommendationsCentre: React.FC<RecommendationsCentreProps> = ({ on
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-              AI-Powered Inventory Decision Support & Recommendation Centre
+              STOCK SENTRY — Explainable Decision Rules & Heuristic Intelligence
             </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200">
-              Explainable Decision Engine
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 border border-sky-300">
+              Deterministic Rules Engine
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Statistical rules and selective control heuristics detecting stockout deficits, capital tie-up, and supply vulnerabilities.
+            Transparent, 100% explainable selective control heuristics detecting stockout deficits, capital tie-up, and supply vulnerabilities across catalogued SKUs.
           </p>
         </div>
 
@@ -97,6 +97,26 @@ export const RecommendationsCentre: React.FC<RecommendationsCentreProps> = ({ on
             Medium ({mediumCount})
           </button>
         </div>
+      </div>
+
+      {/* Heuristic Transparency Callout */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-white shadow-sm space-y-2">
+        <div className="flex items-center justify-between text-xs font-bold text-sky-400 uppercase tracking-wider">
+          <span className="flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-sky-400" />
+            Heuristic Rule Architecture ({recommendations.length} Active Dynamic Alerts)
+          </span>
+          <span className="text-[10px] text-slate-400 font-mono">100% Explainable • Deterministic LSCM</span>
+        </div>
+        <p className="text-xs text-slate-300 leading-relaxed">
+          Alerts are computed dynamically across all 200 catalogued items using 6 deterministic operational rules:
+          <strong className="text-white"> (1) Vital Zero Stock</strong> (immediate line halt risk),
+          <strong className="text-white"> (2) ASV Deficit</strong> (high-spend scarce vital parts below safety threshold),
+          <strong className="text-white"> (3) Scarce Long Lead Time</strong> (procurement delay vulnerability),
+          <strong className="text-white"> (4) High-Value Overstock</strong> (Class A capital tie-up),
+          <strong className="text-white"> (5) Dormant Dead Stock</strong> (non-moving obsolescence risk), and
+          <strong className="text-white"> (6) Seasonal Surge Buffer</strong> (monsoon/fog pre-season buffers).
+        </p>
       </div>
 
       {/* Recommendations Cards Grid */}

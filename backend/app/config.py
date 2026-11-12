@@ -2,8 +2,10 @@ import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    APP_NAME: str = "AI-Powered Automatic Block Planning to Maximize Asset Availability"
-    APP_SUBTITLE: str = "MUSIC-3D-Based Spare-Part Inventory Intelligence for Indian Railways"
+    APP_NAME: str = "STOCK SENTRY"
+    APP_SUBTITLE: str = "Smart Railway Inventory Management & Predictive Maintenance — Team TRACKBYTE"
+    TAGLINE: str = "Intelligent Inventory. Predictive Maintenance. Smarter Railways."
+    TEAM_NAME: str = "TRACKBYTE"
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./railway_inventory.db")
     DEMO_MODE: bool = True
     SIMULATION_DEFAULT_RUNS: int = 500

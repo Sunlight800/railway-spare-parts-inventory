@@ -24,6 +24,56 @@ export const api = {
     return res.json();
   },
 
+  createSparePart: async (payload: any) => {
+    const res = await fetch(`${API_BASE}/spare-parts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Failed to create spare part');
+    }
+    return res.json();
+  },
+
+  updateSparePart: async (partId: string, payload: any) => {
+    const res = await fetch(`${API_BASE}/spare-parts/${partId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Failed to update spare part');
+    }
+    return res.json();
+  },
+
+  deleteSparePart: async (partId: string) => {
+    const res = await fetch(`${API_BASE}/spare-parts/${partId}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Failed to delete spare part');
+    }
+    return res.json();
+  },
+
+  quickUpdateStock: async (partId: string, quantity: number) => {
+    const res = await fetch(`${API_BASE}/spare-parts/${partId}/stock`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quantity })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Failed to update stock');
+    }
+    return res.json();
+  },
+
   // Classifications
   getClassificationSummary: async () => {
     const res = await fetch(`${API_BASE}/classifications/summary`);

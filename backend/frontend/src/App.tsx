@@ -13,7 +13,6 @@ import { SimulationStudio } from './pages/SimulationStudio';
 import { AssetsSystems } from './pages/AssetsSystems';
 import { SuppliersProcurement } from './pages/SuppliersProcurement';
 import { DataManagement } from './pages/DataManagement';
-import { MethodologyLearning } from './pages/MethodologyLearning';
 import { api } from './services/api';
 
 export const App: React.FC = () => {
@@ -113,9 +112,6 @@ export const App: React.FC = () => {
           )}
           {currentTab === 'data-management' && (
             <DataManagement />
-          )}
-          {currentTab === 'methodology' && (
-            <MethodologyLearning />
           )}
         </main>
       </div>

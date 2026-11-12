@@ -26,8 +26,7 @@ export type NavTab =
   | 'simulation'
   | 'assets'
   | 'suppliers'
-  | 'data-management'
-  | 'methodology';
+  | 'data-management';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -48,14 +47,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, recom
     { id: 'assets', label: 'Assets & Systems BOM', icon: TrainTrack },
     { id: 'suppliers', label: 'Suppliers (GOLF)', icon: Truck },
     { id: 'data-management', label: 'Data Management', icon: Database, tag: 'Excel/CSV' },
-    { id: 'methodology', label: 'Methodology & Viva', icon: BookOpen, tag: 'LSCM Guide' },
   ];
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col flex-shrink-0 min-h-screen">
       <div className="p-3 border-b border-slate-800 flex items-center justify-between text-xs font-semibold text-slate-400 tracking-wider uppercase">
         <span>Navigation Menu</span>
-        <span className="text-[10px] text-blue-400 font-mono">v1.0-IR</span>
+        <span className="text-[10px] text-sky-400 font-mono font-bold tracking-wider">TRACKBYTE</span>
       </div>
 
       <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
@@ -106,13 +104,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onSelectTab, recom
 
       {/* Footer Info Box */}
       <div className="p-3 border-t border-slate-800 bg-slate-950/60 text-[11px] text-slate-400 space-y-1">
-        <div className="font-semibold text-slate-300 flex items-center justify-between">
-          <span>LSCM Course Project</span>
-          <span className="text-emerald-400 font-mono">● Active</span>
+        <div className="font-semibold text-slate-200 flex items-center justify-between">
+          <span className="font-bold tracking-wide text-sky-400">STOCK SENTRY</span>
+          <span className="text-emerald-400 font-mono text-[10px]">● System Active</span>
         </div>
         <p className="text-[10px] text-slate-400 leading-tight">
           MUSIC-3D Model (ABC × SDE × VED) with 27 Service Level & Z-Score Mappings.
         </p>
+        <div className="pt-1 text-[9px] text-slate-500 font-mono uppercase tracking-wider">
+          Team TRACKBYTE
+        </div>
       </div>
     </aside>
   );

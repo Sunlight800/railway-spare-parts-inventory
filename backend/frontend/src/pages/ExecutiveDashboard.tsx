@@ -51,7 +51,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ onNaviga
     return (
       <div className="p-8 text-center text-slate-500">
         <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm font-medium">Aggregating Indian Railways Inventory Intelligence...</p>
+        <p className="text-sm font-medium">Aggregating Stock Sentry Inventory Intelligence...</p>
       </div>
     );
   }
@@ -92,10 +92,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({ onNaviga
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Indian Railways Inventory & Availability Executive Overview
+            STOCK SENTRY — Inventory & Availability Executive Overview
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time selective control analytics, MUSIC-3D availability intelligence, and stockout risk surveillance.
+            Real-time selective control analytics, MUSIC-3D availability intelligence, and stockout risk surveillance — Team TRACKBYTE.
           </p>
         </div>
 
